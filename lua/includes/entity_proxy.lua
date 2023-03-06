@@ -174,7 +174,7 @@ if CLIENT then
 			else text = text .. "[" .. proxy:GetClass() .. "]" end
 		else text = text .. "[NULL Entity]" end
 		
-		return text .. (received and "[Received]" or "[Not Received]")
+		return text .. (proxy.IsEntityReceived and "[Received]" or "[Not Received]")
 	end
 else --server doesn't need entity proxies
 	function Read()
