@@ -51,6 +51,8 @@ if CLIENT then
 					return detoured_function
 				end
 				
+				if value == nil then return rawget(self, key) end
+				
 				return value
 			end,
 			
@@ -64,10 +66,17 @@ if CLIENT then
 			__tostring = ToString,
 		})
 		
-		Proxies[entity_index] = proxy --to prevent duplicates
+		if entity_index ~= 8191 then
+			Proxies[entity_index] = proxy --to prevent duplicates
+			proxy.IsEntityReceived = true
+			proxy.InvalidEntityProxy = true
+		else
+			proxy.InvalidEntityProxy = true
+			proxy.IsEntityReceived = false
+		end
+		
 		proxy.IsEntityProxy = true
 		proxy.IsEntityProxyAlive = IsAlive
-		proxy.IsEntityReceived = false
 		
 		function proxy:EntIndex() return entity_index end
 		function proxy:GetProxiedEntity() return entity end
@@ -90,10 +99,8 @@ if CLIENT then
 		
 		--if the entity is valid, we don't need to create the hook which waits for its creation
 		if entity:IsValid() then return avoid_proxy and entity or proxy end
-		if first then hook.Add("OnEntityCreated", "EntityProxy", Hook) end
-		
-		--add it to the waiting list
-		WaitingProxies[entity_index] = proxy
+		if first then hook.Add("OnEntityCreated", "EntityProxy", Hook) end --start the watch
+		if entity_index ~= 8191 then WaitingProxies[entity_index] = proxy end --add it to the waiting list
 		
 		return proxy
 	end
@@ -126,7 +133,7 @@ if CLIENT then
 	function Read(avoid_proxy)
 		local entity_index = net.ReadUInt(13)
 		
-		return entity_index and proxy_entity(entity_index, avoid_proxy)
+		return entity_index and Create(entity_index, avoid_proxy)
 	end
 	
 	function Unhook()
@@ -136,12 +143,12 @@ if CLIENT then
 	end
 	
 	function ToString(proxy)
-		local text = "[NULL EntityProxy]"
+		local text = "[" .. proxy:EntIndex() .. "]"
 		
 		if proxy:IsValid() then
 			if proxy:IsPlayer() then text = "Player [1][" .. proxy:Nick() .. "]"
-			else text = "[" .. entity_index:EntIndex() .. "][" .. proxy:GetClass() .. "]" end
-		end
+			else text = text .. "[" .. proxy:GetClass() .. "]" end
+		else text = text .. "[NULL Entity]" end
 		
 		return text .. (received and "[Received]" or "[Not Received]")
 	end
