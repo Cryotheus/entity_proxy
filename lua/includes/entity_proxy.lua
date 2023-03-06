@@ -185,10 +185,11 @@ else --server doesn't need entity proxies
 end
 
 --same in both realms
-function Write(entity)
+function Write(entity_index)
 	--we use 8191 as the invalid entity index because if you reach this index the server is probably going to crash soon anyways
 	--(meaning it will never be reached, and if it is, the issue this would propose is not as big of deal as having an entity with that index)
 	--I'm not using 0 so the world entity can be networked since I use it to represent the server in Pyrition and others may do the same
-	if entity:IsValid() then net.WriteUInt(entity:EntIndex(), 13)
-	else net.WriteUInt(8191, 13) end
+	if isentity(entity_index) then entity_index = entity_index:IsValid() and entity_index:EntIndex() or 8191 end
+	
+	net.WriteUInt(entity_index, 13)
 end

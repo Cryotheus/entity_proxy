@@ -48,7 +48,8 @@ The server only has access to `Read` and `Write`, all other functions are availa
 |  IsAlive | `table:proxy`                               | `boolean`     | Checks if the proxy's entity is valid or has yet to be received.                   |
 |   Read   | `boolean:avoid_proxy`                       | `table:proxy` | `avoid_proxy` will return an `Entity` instead of its proxy if it's a valid entity. |
 |  Unhook  |                                             |               | **INTERNAL** Attempts to remove the `NetworkEntityCreated` hook.                   |
-|   Write  | `entity`                                    |               | Writes a 13-bit unsigned integer of the entity's index.                            |
+|   Write  | `entity`                                    |               | Writes a 13-bit unsigned integer of the entity's index, or 8191 if invalid.        |
+|   Write  | `number`                                    |               | Writes a 13-bit unsigned integer.                                                  |
 
 ## Fields
 You shouldn't have to touch there, but they're here if you need them.  
