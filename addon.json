@@ -1,0 +1,19 @@
+{
+	"author"	:	"Cryotheum",
+	"title"		:	"Networking Entity Proxy Module",
+	"type"		:	"tool",
+	"tags"		:	[ "build" ],
+	"ignore"	:
+	[
+		"*.bat",
+		"*.gma",
+		"*.pdn",
+		"*.txt",
+		"*.zip",
+		".git*",
+		"license",
+		"LICENSE",
+		"*.md",
+		"wiki/*"
+	]
+}
