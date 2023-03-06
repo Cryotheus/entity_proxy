@@ -43,10 +43,10 @@ The server only has access to `Read` and `Write`, all other functions are availa
 | :------: | ------------------------------------------- | ------------- | ---------------------------------------------------------------------------------- |
 |  Create  | `number:entity_index` `boolean:avoid_proxy` | `table:proxy` | **INTERNAL** Creates an entity proxy and registers it for receiving.               |
 |  Destroy | `number:entity_index`                       |               | Stops waiting for the entity to be created, and unregisters it.                    |
-|   Hook   | `Entity:entity`                             |               | **INTERNAL** The function used in the `OnEntityCreated` hook.                      |
+|   Hook   | `Entity:entity`                             |               | **INTERNAL** The function used in the `NetworkEntityCreated` hook.                      |
 |  IsAlive | `table:proxy`                               | `boolean`     | Checks if the proxy's entity is valid or has yet to be received.                   |
 |   Read   | `boolean:avoid_proxy`                       | `table:proxy` | `avoid_proxy` will return an `Entity` instead of its proxy if it's a valid entity. |
-|  Unhook  |                                             |               | **INTERNAL** Attempts to remove the `OnEntityCreated` hook.                        |
+|  Unhook  |                                             |               | **INTERNAL** Attempts to remove the `NetworkEntityCreated` hook.                        |
 |   Write  | `entity`                                    |               | Writes a 13-bit unsigned integer of the entity's index.                            |
 
 ## Fields

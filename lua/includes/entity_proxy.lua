@@ -99,7 +99,7 @@ if CLIENT then
 		
 		--if the entity is valid, we don't need to create the hook which waits for its creation
 		if entity:IsValid() then return avoid_proxy and entity or proxy end
-		if first then hook.Add("OnEntityCreated", "EntityProxy", Hook) end --start the watch
+		if first then hook.Add("NetworkEntityCreated", "EntityProxy", Hook) end --start the watch
 		if entity_index ~= 8191 then WaitingProxies[entity_index] = proxy end --add it to the waiting list
 		
 		return proxy
@@ -139,7 +139,7 @@ if CLIENT then
 	function Unhook()
 		if next(WaitingProxies) then return end
 			
-		hook.Remove("OnEntityCreated", "EntityProxy")
+		hook.Remove("NetworkEntityCreated", "EntityProxy")
 	end
 	
 	function ToString(proxy)
