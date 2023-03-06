@@ -1,5 +1,5 @@
 --pragma once
-if entity_proxy then return end
+--if entity_proxy then return end
 
 --locals for expediency
 local isfunction = isfunction
@@ -41,17 +41,21 @@ if CLIENT then
 			GetProxiedEntity = function() return entity end,
 			GetProxiedEntityDetours = function() return proxy_detours end,
 			
-			SetProxiedEntity = function(self, new_entity) --new_entity must be of the same index (for safety)
+			SetProxiedEntity = function(_self, new_entity) --new_entity must be of the same index (for safety)
 				entity = new_entity
 				entity.IsEntityReceived = true
 				
+				--print("we are setting a proxy for", new_entity)
+				
 				--move the values from the proxy to the entity
 				for key, value in pairs(proxy) do
-					--print("moving", key, value)
+					--print("\tmoving", key, value)
 					
 					entity[key] = value
 					rawset(proxy, key, nil)
 				end
+				
+				--print("move done")
 				
 				if entity.OnEntityProxyReceived then entity:OnEntityProxyReceived(entity) end
 			end
@@ -65,7 +69,7 @@ if CLIENT then
 					if detoured_function then return detoured_function end
 					
 					local original_function = entity[key]
-					detoured_function = function(self, ...) return original_function(entity, ...) end
+					detoured_function = function(_self, ...) return original_function(entity, ...) end
 					proxy_detours[key] = detoured_function
 					
 					return detoured_function
@@ -79,7 +83,9 @@ if CLIENT then
 			__name = "EntityProxy",
 			
 			__newindex = function(self, key, value)
-				if rawget(self, "IsEntityReceived") then entity[key] = value
+				print("__newindex", rawget(self, "IsEntityReceived"), key, value)
+				
+				if entity:IsValid() then entity[key] = value
 				else rawset(self, key, value) end
 			end,
 			
@@ -96,8 +102,6 @@ if CLIENT then
 		end
 		
 		proxy.IsEntityProxy = true
-		
-
 		
 		--if the entity is valid, we don't need to create the hook which waits for its creation
 		if entity:IsValid() then return avoid_proxy and entity or proxy end
