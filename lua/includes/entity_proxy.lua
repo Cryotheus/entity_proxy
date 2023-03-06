@@ -83,8 +83,6 @@ if CLIENT then
 			__name = "EntityProxy",
 			
 			__newindex = function(self, key, value)
-				print("__newindex", rawget(self, "IsEntityReceived"), key, value)
-				
 				if entity:IsValid() then entity[key] = value
 				else rawset(self, key, value) end
 			end,
