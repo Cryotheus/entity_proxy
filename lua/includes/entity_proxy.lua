@@ -1,5 +1,5 @@
 --pragma once
---if entity_proxy then return end
+if entity_proxy then return end
 
 --locals for expediency
 local isfunction = isfunction
@@ -16,6 +16,15 @@ Proxies = {} --proxy registry
 WaitingProxies = {} --proxies that are waiting for their entity to be received
 
 --local functions
+local function auto_remove_function(self, entity_index)
+	timer.Simple(0, function()
+		if self:IsValid() then return end
+		
+		Destroy(entity_index)
+	end)
+end
+
+--module functions
 if CLIENT then
 	function Create(entity_index, avoid_proxy)
 		local first = next(WaitingProxies) == nil
@@ -31,6 +40,7 @@ if CLIENT then
 		
 		if proxy and IsAlive(proxy) then return avoid_proxy and proxy:GetProxiedEntity() or proxy end
 		
+		local auto_remove = true
 		local entity = Entity(entity_index)
 		local proxy_detours = {} --stores the detoured functions
 		
@@ -40,24 +50,34 @@ if CLIENT then
 			EntIndex = function() return entity_index end,
 			GetProxiedEntity = function() return entity end,
 			GetProxiedEntityDetours = function() return proxy_detours end,
+			SetAutoRemoveEntityProxy = function(_self, value)
+				if value == auto_remove then return end
+				
+				if value then
+					auto_remove = true
+					
+					if entity:IsValid() then entity:CallOnRemove("EntityProxy", auto_remove_function, entity_index) end
+				else
+					auto_remove = false
+					
+					if entity:IsValid() then entity:RemoveCallOnRemove("EntityProxy") end
+				end
+			end,
 			
 			SetProxiedEntity = function(_self, new_entity) --new_entity must be of the same index (for safety)
 				entity = new_entity
 				entity.IsEntityReceived = true
 				
-				--print("we are setting a proxy for", new_entity)
-				
 				--move the values from the proxy to the entity
 				for key, value in pairs(proxy) do
-					--print("\tmoving", key, value)
-					
 					entity[key] = value
 					rawset(proxy, key, nil)
 				end
 				
-				--print("move done")
-				
+				if entity:IsValid() then entity:CallOnRemove("EntityProxy", auto_remove_function, entity_index) end
 				if entity.OnEntityProxyReceived then entity:OnEntityProxyReceived(entity) end
+				
+				return proxy
 			end
 		}, {
 			__index = function(self, key, ...)
@@ -96,13 +116,13 @@ if CLIENT then
 			proxy.InvalidEntityProxy = true
 		else
 			proxy.InvalidEntityProxy = true
-			proxy.IsEntityReceived = false
+			proxy.IsEntityReceived = entity:IsValid()
 		end
 		
 		proxy.IsEntityProxy = true
 		
 		--if the entity is valid, we don't need to create the hook which waits for its creation
-		if entity:IsValid() then return avoid_proxy and entity or proxy end
+		if entity:IsValid() then return avoid_proxy and entity or proxy:SetProxiedEntity(entity) end
 		if first then hook.Add("NetworkEntityCreated", "EntityProxy", Hook) end --start the watch
 		if entity_index ~= 8191 then WaitingProxies[entity_index] = proxy end --add it to the waiting list
 		

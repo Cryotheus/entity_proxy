@@ -15,16 +15,18 @@ Bullet points of things you can do with this in case you need a *TL;DR*:
 
 ## EntityProxy
 A table with some meta methods to make entity networking easier.  
+**You can treat this like a normal Entity; all Entity methods will work just the same.**
 
 ### Methods
-|          Method         | Parameters                     | Returns                | Description                                                        |
-| :---------------------: | ------------------------------ | ---------------------- | ------------------------------------------------------------------ |
-|         EntIndex        |                                | `number:entity_index`  | Same as `Entity:EntIndex()` but works even with an invalid entity. |
-|     GetProxiedEntity    |                                | `entity`               | Returns the proxied entity, even if it's invalid.                  |
-| GetProxiedEntityDetours |                                | `table:detours`        | **INTERNAL** Returns the detours table. All values are functions.  |
-|  OnEntityProxyExpired   | `entity` `number:entity_index` | `boolean:dont_destroy` | Called when the entity was not received.                           |
-|  OnEntityProxyReceived  | `entity`                       |                        | Called when the entity is received.                                |
-|     SetProxiedEntity    | `entity:new_entity`            |                        | **INTERNAL** Sets the proxied entity.                              |
+|          Method          | Parameters                     | Returns                | Description                                                        |
+| :----------------------: | ------------------------------ | ---------------------- | ------------------------------------------------------------------ |
+|         EntIndex         |                                | `number:entity_index`  | Same as `Entity:EntIndex()` but works even with an invalid entity. |
+|     GetProxiedEntity     |                                | `entity`               | Returns the proxied entity, even if it's invalid.                  |
+|  GetProxiedEntityDetours |                                | `table:detours`        | **INTERNAL** Returns the detours table. All values are functions.  |
+|   OnEntityProxyExpired   | `entity` `number:entity_index` | `boolean:dont_destroy` | Called when the entity was not received.                           |
+|   OnEntityProxyReceived  | `entity`                       |                        | Called when the entity is received.                                |
+| SetAutoRemoveEntityProxy | `boolean`                      |                        | Set to `false` to keep the proxy registered after entity deletion. |
+|     SetProxiedEntity     | `entity:new_entity`            |                        | **INTERNAL** Sets the proxied entity.                              |
 
 ### Fields
 Mostly internal. Safe to access, but modification is not recommended.
@@ -42,10 +44,10 @@ The server only has access to `Read` and `Write`, all other functions are availa
 | :------: | ------------------------------------------- | ------------- | ---------------------------------------------------------------------------------- |
 |  Create  | `number:entity_index` `boolean:avoid_proxy` | `table:proxy` | **INTERNAL** Creates an entity proxy and registers it for receiving.               |
 |  Destroy | `number:entity_index`                       |               | Stops waiting for the entity to be created, and unregisters it.                    |
-|   Hook   | `Entity:entity`                             |               | **INTERNAL** The function used in the `NetworkEntityCreated` hook.                      |
+|   Hook   | `Entity:entity`                             |               | **INTERNAL** The function used in the `NetworkEntityCreated`                       |
 |  IsAlive | `table:proxy`                               | `boolean`     | Checks if the proxy's entity is valid or has yet to be received.                   |
 |   Read   | `boolean:avoid_proxy`                       | `table:proxy` | `avoid_proxy` will return an `Entity` instead of its proxy if it's a valid entity. |
-|  Unhook  |                                             |               | **INTERNAL** Attempts to remove the `NetworkEntityCreated` hook.                        |
+|  Unhook  |                                             |               | **INTERNAL** Attempts to remove the `NetworkEntityCreated` hook.                   |
 |   Write  | `entity`                                    |               | Writes a 13-bit unsigned integer of the entity's index.                            |
 
 ## Fields
