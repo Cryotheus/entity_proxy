@@ -4,6 +4,15 @@ Only clients create proxies as the server should never be waiting for an entity 
 This module is shared, but most of the functionality is in client realm.  
 Anything marked with **INTERNAL** shouldn't be used unless you know what you're doing.
 
+## Cool, but what does this fix?
+Race conditions? Sure, lets say that.  
+Occasionally, you may want to send an entity to the client through a net message but you can't be sure if the client has received the entity yet (usually happens when the entity is created the same tick the net message is sent). This fixes that. Use `entity_proxy.Read` and `entity_proxy.Write` to send entities over net messages and you'll be able to receive them even if they haven't been created yet. When the entity is created on the client, it will be automatically updated with the real entity. In addition, this lets you have multiple invalid entities as keys in a table. For the most part, the proxy can be treated just like a normal entity. Be aware however, in truth it's just a table with meta methods.  
+
+Bullet points of things you can do with this in case you need a *TL;DR*:
+ *  Send entities over net messages before the entity is created on client.
+ *  Use multiple invalid entities as keys in tables.
+ *  Hold a reference to entities that will never exist on the client.
+
 ## EntityProxy
 A table with some meta methods to make entity networking easier.  
 
