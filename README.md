@@ -22,7 +22,6 @@ A table with some meta methods to make entity networking easier.
 |         EntIndex        |                                | `number:entity_index`  | Same as `Entity:EntIndex()` but works even with an invalid entity. |
 |     GetProxiedEntity    |                                | `entity`               | Returns the proxied entity, even if it's invalid.                  |
 | GetProxiedEntityDetours |                                | `table:detours`        | **INTERNAL** Returns the detours table. All values are functions.  |
-|    IsEntityProxyAlive   |                                | `boolean`              | Same as `entity_proxy.IsAlive(proxy)` where proxy is `self`.       |
 |  OnEntityProxyExpired   | `entity` `number:entity_index` | `boolean:dont_destroy` | Called when the entity was not received.                           |
 |  OnEntityProxyReceived  | `entity`                       |                        | Called when the entity is received.                                |
 |     SetProxiedEntity    | `entity:new_entity`            |                        | **INTERNAL** Sets the proxied entity.                              |

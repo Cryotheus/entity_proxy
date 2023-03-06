@@ -29,13 +29,33 @@ if CLIENT then
 			if not proxy.OnEntityProxyExpired or not proxy:OnEntityProxyExpired(entity, entity_index) then Destroy(entity_index) end
 		end)
 		
-		if proxy and proxy:IsEntityProxyAlive() then return avoid_proxy and proxy:GetProxiedEntity() or proxy end
+		if proxy and IsAlive(proxy) then return avoid_proxy and proxy:GetProxiedEntity() or proxy end
 		
 		local entity = Entity(entity_index)
 		local proxy_detours = {} --stores the detoured functions
 		
 		--we use _EntityProxyIndex to show debug tools (like PrintTable) that this table is an entity proxy
-		proxy = setmetatable({_EntityProxyIndex = entity_index}, {
+		proxy = setmetatable({
+			_EntityProxyIndex = entity_index,
+			EntIndex = function() return entity_index end,
+			GetProxiedEntity = function() return entity end,
+			GetProxiedEntityDetours = function() return proxy_detours end,
+			
+			SetProxiedEntity = function(self, new_entity) --new_entity must be of the same index (for safety)
+				entity = new_entity
+				entity.IsEntityReceived = true
+				
+				--move the values from the proxy to the entity
+				for key, value in pairs(proxy) do
+					--print("moving", key, value)
+					
+					entity[key] = value
+					rawset(proxy, key, nil)
+				end
+				
+				if entity.OnEntityProxyReceived then entity:OnEntityProxyReceived(entity) end
+			end
+		}, {
 			__index = function(self, key, ...)
 				local value = entity[key]
 				
@@ -76,26 +96,8 @@ if CLIENT then
 		end
 		
 		proxy.IsEntityProxy = true
-		proxy.IsEntityProxyAlive = IsAlive
 		
-		function proxy:EntIndex() return entity_index end
-		function proxy:GetProxiedEntity() return entity end
-		function proxy:GetProxiedEntityDetours() return proxy_detours end
-		
-		function proxy:SetProxiedEntity(new_entity) --new_entity must be of the same index (for safety)
-			entity = new_entity
-			entity.IsEntityReceived = true
-			
-			--move the values from the proxy to the entity
-			for key, value in pairs(self) do
-				print("moving", key, value)
-				
-				entity[key] = value
-				rawset(self, key, nil)
-			end
-			
-			if entity.OnEntityProxyReceived then proxy:OnEntityProxyReceived(entity) end
-		end 
+
 		
 		--if the entity is valid, we don't need to create the hook which waits for its creation
 		if entity:IsValid() then return avoid_proxy and entity or proxy end
