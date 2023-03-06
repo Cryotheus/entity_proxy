@@ -20,9 +20,9 @@ A table with some meta methods to make entity networking easier.
 
 ### Fields
 Mostly internal. Safe to access, but modification is not recommended.
-|       Field      |    Type   | Description                       |
-| :--------------: | :-------: | --------------------------------- |
-|   IsEntityProxy  | `boolean` | Always `true`.                    |
+|       Field      |    Type   | Description                                                         |
+| :--------------: | :-------: | ------------------------------------------------------------------- |
+|   IsEntityProxy  | `boolean` | Always `true`.                                                      |
 | IsEntityReceived | `boolean` | `true` if the entity has been received after the proxy was created. |
 
 ## Module Functions
