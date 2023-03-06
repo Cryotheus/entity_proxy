@@ -5,15 +5,14 @@
 	"tags"		:	[ "build" ],
 	"ignore"	:
 	[
+		".git*",
 		"*.bat",
 		"*.gma",
+		"*.md",
 		"*.pdn",
 		"*.txt",
 		"*.zip",
-		".git*",
-		"license",
-		"LICENSE",
-		"*.md",
-		"wiki/*"
+		"icon.jpg",
+		"LICENSE"
 	]
 }

@@ -1,5 +1,5 @@
 # Networking Entity Proxy Module
-Magical code that makes networking entities (more) reliable.  
+Magical code that makes networking entities (more) reliable. [Workshop link](https://steamcommunity.com/sharedfiles/filedetails/?id=2943025031).  
 Only clients create proxies as the server should never be waiting for an entity to be created (it's the realm creating them after all).  
 This module is shared, but most of the functionality is in client realm.  
 Anything marked with **INTERNAL** shouldn't be used unless you know what you're doing.
