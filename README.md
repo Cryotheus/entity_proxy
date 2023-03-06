@@ -20,10 +20,11 @@ A table with some meta methods to make entity networking easier.
 
 ### Fields
 Mostly internal. Safe to access, but modification is not recommended.
-|       Field      |    Type   | Description                                                         |
-| :--------------: | :-------: | ------------------------------------------------------------------- |
-|   IsEntityProxy  | `boolean` | Always `true`.                                                      |
-| IsEntityReceived | `boolean` | `true` if the entity has been received after the proxy was created. |
+|        Field       |    Type   | Description                                                         |
+| :----------------: | :-------: | ------------------------------------------------------------------- |
+| InvalidEntityProxy | `boolean` | `true` if the entity received was of index 8191 (invalid entity).   |
+|    IsEntityProxy   | `boolean` | Always `true`.                                                      |
+|  IsEntityReceived  | `boolean` | `true` if the entity has been received after the proxy was created. |
 
 ## Module Functions
 The modules is `entity_proxy` and can be loaded with `include("includes/entity.lua")` placed anywhere before usage of the module.  
