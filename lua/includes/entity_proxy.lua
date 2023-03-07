@@ -27,22 +27,26 @@ end
 --module functions
 if CLIENT then
 	function Create(entity_index, avoid_proxy)
+		local entity = Entity(entity_index)
 		local first = next(WaitingProxies) == nil
 		local proxy = Proxies[entity_index]
 		
 		--setup expiration up here so it is refreshed when we make duplicate calls
-		timer.Create("EntityProxy" .. entity_index, 4, 1, function()
-			proxy.IsEntityReceived = true
-			
-			--destroy the proxy if we don't have the method or the method returns false
-			if not proxy.OnEntityProxyExpired or not proxy:OnEntityProxyExpired(entity, entity_index) then Destroy(entity_index) end
-		end)
+		if not entity:IsValid() then --don't expire valid entities!
+			timer.Create("EntityProxy" .. entity_index, 6, 1, function()
+				proxy.IsEntityReceived = true
+				
+				--destroy the proxy if we don't have the method or the method returns false
+				if not proxy.OnEntityProxyExpired or not proxy:OnEntityProxyExpired(entity_index) then Destroy(entity_index) end
+			end)
+		end
 		
+		--don't create duplicate proxies however
 		if proxy and IsAlive(proxy) then return avoid_proxy and proxy:GetProxiedEntity() or proxy end
 		
 		local auto_remove = true
-		local entity = Entity(entity_index)
 		local proxy_detours = {} --stores the detoured functions
+		local safe_table = {} --stores values when the entity is invalid
 		
 		--we use _EntityProxyIndex to show debug tools (like PrintTable) that this table is an entity proxy
 		proxy = setmetatable({
@@ -69,19 +73,43 @@ if CLIENT then
 				entity.IsEntityReceived = true
 				
 				--move the values from the proxy to the entity
-				for key, value in pairs(proxy) do
+				for key, value in pairs(safe_table) do
 					entity[key] = value
-					rawset(proxy, key, nil)
+					safe_table[key] = value
 				end
 				
-				if entity:IsValid() then entity:CallOnRemove("EntityProxy", auto_remove_function, entity_index) end
+				--stop the expiration time
+				timer.Remove("EntityProxy" .. entity_index)
+				
+				if auto_remove and entity:IsValid() then entity:CallOnRemove("EntityProxy", auto_remove_function, entity_index) end
 				if entity.OnEntityProxyReceived then entity:OnEntityProxyReceived(entity) end
 				
 				return proxy
 			end
 		}, {
 			__index = function(self, key, ...)
-				local value = entity[key]
+				local proxy_value = rawget(self, key)
+				
+				if proxy_value ~= nil then return proxy_value end
+				
+				local entity_value = entity[key]
+				
+				if isfunction(entity_value) then
+					local detoured_function = proxy_detours[key]
+					
+					if detoured_function then return detoured_function end
+					
+					detoured_function = function(_self, ...) return entity_value(entity, ...) end
+					proxy_detours[key] = detoured_function
+					
+					return detoured_function
+				end
+				
+				if entity_value == nil then return safe_table[key] end
+				
+				return entity_value
+				
+				--[[local value = entity[key]
 				
 				if isfunction(value) then
 					local detoured_function = proxy_detours[key]
@@ -97,14 +125,14 @@ if CLIENT then
 				
 				if value == nil then return rawget(self, key) end
 				
-				return value
+				return value]]
 			end,
 			
 			__name = "EntityProxy",
 			
 			__newindex = function(self, key, value)
 				if entity:IsValid() then entity[key] = value
-				else rawset(self, key, value) end
+				else safe_table[key] = value end
 			end,
 			
 			__tostring = ToString,
@@ -112,14 +140,14 @@ if CLIENT then
 		
 		if entity_index ~= 8191 then
 			Proxies[entity_index] = proxy --to prevent duplicates
-			proxy.IsEntityReceived = true
-			proxy.InvalidEntityProxy = true
+			rawset(proxy, "InvalidEntityProxy", true)
+			rawset(proxy, "IsEntityReceived", true)
 		else
-			proxy.InvalidEntityProxy = true
-			proxy.IsEntityReceived = entity:IsValid()
+			rawset(proxy, "InvalidEntityProxy", true)
+			rawset(proxy, "IsEntityReceived", entity:IsValid())
 		end
 		
-		proxy.IsEntityProxy = true
+		rawset(proxy, "IsEntityProxy", true)
 		
 		--if the entity is valid, we don't need to create the hook which waits for its creation
 		if entity:IsValid() then return avoid_proxy and entity or proxy:SetProxiedEntity(entity) end
