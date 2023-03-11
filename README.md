@@ -105,6 +105,7 @@ No need to set these, they are automatically set for you. Reading from them is s
 |  OnEntityProxyDestroyed   |               |           | Called when the proxy is destroyed (with `DestroyInternal`)                                      |
 |   OnEntityProxyReceived   | `entity`      |           | Called when an entity with the matching index has been created (called after `SetProxiedEntity`) |
 |   OnEntityProxyTimeout    |               | `boolean` | Set to `true` or return `true` to call `DestroyInternal`                                         |
+|   OnProxiedEntityRemove   |               | `boolean` | Set to `true` or return `true` to call `DestroyInternal`, called when the entity is removed      |
 |  RefreshEntityProxyTimer  |               |           | Restarts the timeout timer                                                                       |
 |     SetProxiedEntity      | `entity`      |           | **INTERNAL** Sets the entity upvalue, moves null safety values, and sets up removal callback     |
 |          __index          | `key`         | `any`     | **INTERNAL**                                                                                     |
