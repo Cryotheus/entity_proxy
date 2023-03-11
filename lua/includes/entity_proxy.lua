@@ -148,12 +148,26 @@ function CreateInternal(namespace, entity_index, timeout)
 	if valid then entity:CallOnRemove(hook_name, on_entity_remove) end
 	
 	proxy = setmetatable({
+		ClearEntityProxyFields = function()
+			table.Empty(null_safety)
+			
+			if deleting then table.Empty(deleting_null_safety) end
+		end,
+		
 		ClearProxiedEntityDetours = function() for key in pairs(proxy_detours) do proxy_detours[key] = nil end end,
 		
 		DecrementEntityProxyReferenceCount = function(_self, increment)
 			reference_count = reference_count - (increment or 1)
 			
 			return check_reference_count()
+		end,
+		
+		Destroy = function() DestroyInternal(namespace, entity_index) end,
+		
+		DropEntityProxyField = function(_self, key)
+			null_safety[key] = nil
+			
+			if deleting then deleting_null_safety[key] = nil end
 		end,
 		
 		EntIndex = function() return entity_index end, --makes EntIndex always work - even when the entity is invalid!
@@ -164,6 +178,14 @@ function CreateInternal(namespace, entity_index, timeout)
 		IncrementEntityProxyReferenceCount = function(_self, increment) reference_count = reference_count + (increment or 1) end,
 		IsEntityProxyAlive = function() return proxies[entity_index] == proxy end,
 		RefreshEntityProxyTimer = function() timer.Create(timer_name, timeout or default_timeout, 1, timeout_callback) end,
+		
+		SaveEntityProxyField = function(_self, key)
+			if valid then
+				null_safety[key] = true
+				
+				if deleting then deleting_null_safety[key] = entity[key] end
+			end
+		end,
 		
 		SetEntityProxyReferenceCount = function(_self, count)
 			reference_count = count
