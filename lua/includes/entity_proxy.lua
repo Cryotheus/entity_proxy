@@ -41,11 +41,22 @@ function CreateInternal(namespace, entity_index, timeout)
 	local proxies = Proxies[namespace]
 	local proxy
 	local proxy_detours = {}
+	local reference_count = 1
 	local timeout = timeout
 	local timer_name = hook_name .. entity_index
 	local valid = entity:IsValid() --reduce function calls (mainly for __newindex metamethod)
 	local waiting_proxies = WaitingProxies[namespace]
 	local waiting_proxies_empty = next(waiting_proxies) == nil
+	
+	local function check_reference_count()
+		if reference_count <= 0 then
+			DestroyInternal(namespace, entity_index)
+			
+			return true
+		end
+		
+		return false
+	end
 	
 	local function timeout_callback()
 		rawset(proxy, "EntityProxyTimeout", CurTime())
@@ -138,12 +149,27 @@ function CreateInternal(namespace, entity_index, timeout)
 	
 	proxy = setmetatable({
 		ClearProxiedEntityDetours = function() for key in pairs(proxy_detours) do proxy_detours[key] = nil end end,
+		
+		DecrementEntityProxyReferenceCount = function(_self, increment)
+			reference_count = reference_count - (increment or 1)
+			
+			return check_reference_count()
+		end,
+		
 		EntIndex = function() return entity_index end, --makes EntIndex always work - even when the entity is invalid!
 		GetEntityProxyDetours = function() return proxy_detours end,
 		GetEntityProxyNamespace = function() return namespace end,
+		GetEntityProxyReferenceCount = function() return reference_count end,
 		GetProxiedEntity = function() return entity end,
+		IncrementEntityProxyReferenceCount = function(_self, increment) reference_count = reference_count + (increment or 1) end,
 		IsEntityProxyAlive = function() return proxies[entity_index] == proxy end,
 		RefreshEntityProxyTimer = function() timer.Create(timer_name, timeout or default_timeout, 1, timeout_callback) end,
+		
+		SetEntityProxyReferenceCount = function(_self, count)
+			reference_count = count
+			
+			return check_reference_count()
+		end,
 		
 		SetProxiedEntity = function(_self, new_entity)
 			entity = new_entity

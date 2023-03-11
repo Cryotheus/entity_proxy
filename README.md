@@ -94,20 +94,24 @@ No need to set these, they are automatically set for you. Reading from them is s
 |       __name        | `string`         | Always set to `EntityProxy`                                               |
 
 ## Methods
-|          Method           | Parameters    | Returns   | Description                                                                                      |
-| :-----------------------: | ------------- | --------- | ------------------------------------------------------------------------------------------------ |
-| ClearProxiedEntityDetours |               |           | Removed all existing entity method detours                                                       |
-|         EntIndex          |               | `number`  | Sames as `Entity:EntIndex` but also works invalid entities                                       |
-|   GetEntityProxyDetours   |               | `table`   | Returns the proxy_detours local table used by the proxy                                          |
-|  GetEntityProxyNamespace  |               | `string`  | Returns the namespace the entity proxy belongs to (the one it was created with)                  |
-|     GetProxiedEntity      |               | `Entity`  | Self explanatory                                                                                 |
-|    IsEntityProxyAlive     |               | `boolean` | Returns `true` if the proxy is still registered under the namespace (`false` otherwise)          |
-|  OnEntityProxyDestroyed   |               |           | Called when the proxy is destroyed (with `DestroyInternal`)                                      |
-|   OnEntityProxyReceived   | `entity`      |           | Called when an entity with the matching index has been created (called after `SetProxiedEntity`) |
-|   OnEntityProxyTimeout    |               | `boolean` | Set to `true` or return `true` to call `DestroyInternal`                                         |
-|   OnProxiedEntityRemove   |               | `boolean` | Set to `true` or return `true` to call `DestroyInternal`, called when the entity is removed      |
-|  RefreshEntityProxyTimer  |               |           | Restarts the timeout timer                                                                       |
-|     SetProxiedEntity      | `entity`      |           | **INTERNAL** Sets the entity upvalue, moves null safety values, and sets up removal callback     |
-|          __index          | `key`         | `any`     | **INTERNAL**                                                                                     |
-|        __newindex         | `key` `value` |           | **INTERNAL** Sets the value on the entity if it's valid, otherwise caches them until received    |
-|        __tostring         |               | `string`  | Formats useful data about the entity proxy into a string for debugging                           |
+|               Method               | Parameters    | Returns             | Description                                                                                                |
+| :--------------------------------: | ------------- | ------------------- | ---------------------------------------------------------------------------------------------------------- |
+|     ClearProxiedEntityDetours      |               |                     | Removed all existing entity method detours                                                                 |
+| DecrementEntityProxyReferenceCount | `number`      | `boolean:destroyed` | Subtract the `reference_count` local by `number` (defaults to 1) and calls `DestroyInternal` at 0 or below |
+|              EntIndex              |               | `number`            | Sames as `Entity:EntIndex` but also works invalid entities                                                 |
+|       GetEntityProxyDetours        |               | `table`             | Returns the `proxy_detours` local table used by the proxy                                                  |
+|      GetEntityProxyNamespace       |               | `string`            | Returns the namespace the entity proxy belongs to (the one it was created with)                            |
+|    GetEntityProxyReferenceCount    |               | `number`            | Gets the `reference_count` local                                                                           |
+|          GetProxiedEntity          |               | `Entity`            | Self explanatory                                                                                           |
+| IncrementEntityProxyReferenceCount | `number`      |                     | Add the `reference_count` local by `number` (defaults to 1)                                                |
+|         IsEntityProxyAlive         |               | `boolean`           | Returns `true` if the proxy is still registered under the namespace (`false` otherwise)                    |
+|       OnEntityProxyDestroyed       |               |                     | Called when the proxy is destroyed (with `DestroyInternal`)                                                |
+|       OnEntityProxyReceived        | `entity`      |                     | Called when an entity with the matching index has been created (called after `SetProxiedEntity`)           |
+|        OnEntityProxyTimeout        |               | `boolean`           | Set to `true` or return `true` to call `DestroyInternal`                                                   |
+|       OnProxiedEntityRemove        |               | `boolean`           | Set to `true` or return `true` to call `DestroyInternal`, called when the entity is removed                |
+|      RefreshEntityProxyTimer       |               |                     | Restarts the timeout timer                                                                                 |
+|    SetEntityProxyReferenceCount    | `number`      | `boolean:destroyed` | Set the `reference_count` local to `number` and call `DestroyInternal` at 0 or below                       |
+|          SetProxiedEntity          | `entity`      |                     | **INTERNAL** Sets the entity upvalue, moves null safety values, and sets up removal callback               |
+|              __index               | `key`         | `any`               | **INTERNAL**                                                                                               |
+|             __newindex             | `key` `value` |                     | **INTERNAL** Sets the value on the entity if it's valid, otherwise caches them until received              |
+|             __tostring             |               | `string`            | Formats useful data about the entity proxy into a string for debugging                                     |
