@@ -1,223 +1,302 @@
 --pragma once
 if entity_proxy then return end
 
---locals for expediency
-local isfunction = isfunction
-local next = next
-local rawget = rawget
-local rawset = rawset
-
---module time!
+--make this a module
 AddCSLuaFile()
 module("entity_proxy", package.seeall)
 
---module fields
-Proxies = {} --proxy registry
-WaitingProxies = {} --proxies that are waiting for their entity to be received
+--locals
+local default_timeout = CLIENT and 8 --seconds until the proxy expires, false for server
+local entity_hook = SERVER and "OnEntityCreated" or "NetworkEntityCreated" --less calls with NetworkEntityCreated
+local invalid_entity_index = 8191 --last possible entity index, anything beyond crashes gmod (the game will likely crash if this is index used)
 
---local functions
-local function auto_remove_function(self, entity_index)
-	timer.Simple(0, function()
-		if self:IsValid() then return end
-		
-		Destroy(entity_index)
-	end)
+--local function
+local function get_entity_index(object)
+	--assumptions made here:
+	--	Entity = typical entity, get the index or use invalid_entity_index to represent a NULL entity
+	--	number = entity index
+	--	table = EntityProxy 
+	if object:IsValid() or istable(object) then return object:EntIndex()
+	elseif isentity(object) then return invalid_entity_index end
+	
+	return object
 end
+
+--module fields
+Proxies = {}
+WaitingProxies = {}
 
 --module functions
-if CLIENT then
-	function Create(entity_index, avoid_proxy)
-		local entity = Entity(entity_index)
-		local first = next(WaitingProxies) == nil
-		local proxy = Proxies[entity_index]
+function Clear(namespace) for entity_index in pairs(Proxies[namespace]) do DestroyInternal(namespace, entity_index) end end
+function Create(namespace, entity_index, timeout) return CreateInternal(namespace, get_entity_index(entity_index), timeout) end
+
+function CreateInternal(namespace, entity_index, timeout)
+	local deleting --client side only
+	local deleting_null_safety --client side only
+	local entity = Entity(entity_index)
+	local hook_name = "EntityProxy" .. namespace
+	local new_index
+	local null_safety = {}
+	local on_entity_remove
+	local proxies = Proxies[namespace]
+	local proxy
+	local proxy_detours = {}
+	local timeout = timeout
+	local timer_name = hook_name .. entity_index
+	local valid = entity:IsValid() --reduce function calls (mainly for __newindex metamethod)
+	local waiting_proxies = WaitingProxies[namespace]
+	local waiting_proxies_empty = next(waiting_proxies) == nil
+	
+	local function timeout_callback()
+		rawset(proxy, "EntityProxyTimeout", CurTime())
 		
-		--setup expiration up here so it is refreshed when we make duplicate calls
-		if not entity:IsValid() then --don't expire valid entities!
-			timer.Create("EntityProxy" .. entity_index, 6, 1, function()
-				proxy.IsEntityReceived = true
+		--if the user returns true in the OnEntityProxyTimeout callback, destroy the proxy
+		--they can set this to true instead of a function if they don't want
+		if proxy.OnEntityProxyTimeout and (proxy.OnEntityProxyTimeout == true or proxy:OnEntityProxyTimeout()) then
+			--this behavior isn't always desired, as we may want to purposefully hold a reference to an invalid entity
+			DestroyInternal(namespace, entity_index)
+		end
+	end
+	
+	--since timeout can be false, we can't do `timeout or default_timeout`
+	if timeout == nil then timeout = default_timeout end
+	
+	--timeout timer
+	if timeout ~= false and not valid then timer.Create(timer_name, timeout or default_timeout, 1, timeout_callback)
+	else timer.Remove(timer_name) end
+	
+	if SERVER then
+		function new_index(_self, key, value)
+			if valid then
+				entity[key] = value
+				null_safety[key] = true
+			else null_safety[key] = value end
+		end
+		
+		function on_entity_remove(self)
+			valid = false
+			
+			--copy the original values over to null_safety before the entity is removed!
+			for key in pairs(null_safety) do null_safety[key] = self[key] end
+			for key in pairs(proxy_detours) do proxy_detours[key] = nil end --clear the detours!
+			
+			if proxy.OnProxiedEntityRemove and (proxy.OnProxiedEntityRemove == true or proxy:OnProxiedEntityRemove()) then
+				--this behavior isn't always desired, as we may want to purposefully hold a reference to an invalid entity
+				DestroyInternal(namespace, entity_index)
+			end
+		end
+	else
+		deleting = false
+		deleting_null_safety = {}
+		
+		function new_index(_self, key, value)
+			if valid then
+				entity[key] = value
+				null_safety[key] = true
 				
-				--destroy the proxy if we don't have the method or the method returns false
-				if not proxy.OnEntityProxyExpired or not proxy:OnEntityProxyExpired(entity_index) then Destroy(entity_index) end
+				if deleting then deleting_null_safety[key] = value end
+			else null_safety[key] = value end
+		end
+		
+		function on_entity_remove(self)
+			--this is more complex on client, as a full update can trigger the callback
+			if deleting then return end --duplicate call! let the existing timer handle this
+			
+			deleting = true
+			
+			--we don't modify the safe table until we are sure the entity was deleted
+			for key in pairs(null_safety) do deleting_null_safety[key] = self[key] end
+			
+			--HACK: awaiting a fix for false OnRemove calls since 1922
+			timer.Simple(0, function()
+				deleting = false
+				
+				if self:IsValid() then
+					--it was a full update, save some memory and don't move the values
+					for key in pairs(deleting_null_safety) do deleting_null_safety[key] = nil end
+				else
+					--the entity was actually removed!
+					for key, value in pairs(deleting_null_safety) do
+						deleting_null_safety[key] = nil --free the memory
+						null_safety[key] = value --move the values to a usable table
+					end
+					
+					--clear the detours!
+					for key in pairs(proxy_detours) do proxy_detours[key] = nil end
+					
+					if proxy.OnProxiedEntityRemove and (proxy.OnProxiedEntityRemove == true or proxy:OnProxiedEntityRemove()) then
+						--this behavior isn't always desired, as we may want to purposefully hold a reference to an invalid entity
+						DestroyInternal(namespace, entity_index)
+					end
+				end
 			end)
 		end
+	end
+	
+	--setup the removal callback
+	if valid then entity:CallOnRemove(hook_name, on_entity_remove) end
+	
+	proxy = setmetatable({
+		ClearProxiedEntityDetours = function() for key in pairs(proxy_detours) do proxy_detours[key] = nil end end,
+		EntIndex = function() return entity_index end, --makes EntIndex always work - even when the entity is invalid!
+		GetEntityProxyDetours = function() return proxy_detours end,
+		GetEntityProxyNamespace = function() return namespace end,
+		GetProxiedEntity = function() return entity end,
+		IsEntityProxyAlive = function() return proxies[entity_index] == proxy end,
+		RefreshEntityProxyTimer = function() timer.Create(timer_name, timeout or default_timeout, 1, timeout_callback) end,
 		
-		--don't create duplicate proxies however
-		if proxy and IsAlive(proxy) then return avoid_proxy and proxy:GetProxiedEntity() or proxy end
-		
-		local auto_remove = true
-		local proxy_detours = {} --stores the detoured functions
-		local safe_table = {} --stores values when the entity is invalid
-		
-		--we use _EntityProxyIndex to show debug tools (like PrintTable) that this table is an entity proxy
-		proxy = setmetatable({
-			_EntityProxyIndex = entity_index,
-			EntIndex = function() return entity_index end,
-			GetProxiedEntity = function() return entity end,
-			GetProxiedEntityDetours = function() return proxy_detours end,
-			SetAutoRemoveEntityProxy = function(_self, value)
-				if value == auto_remove then return end
-				
-				if value then
-					auto_remove = true
-					
-					if entity:IsValid() then entity:CallOnRemove("EntityProxy", auto_remove_function, entity_index) end
-				else
-					auto_remove = false
-					
-					if entity:IsValid() then entity:RemoveCallOnRemove("EntityProxy") end
-				end
-			end,
+		SetProxiedEntity = function(_self, new_entity)
+			entity = new_entity
 			
-			SetProxiedEntity = function(_self, new_entity) --new_entity must be of the same index (for safety)
-				entity = new_entity
-				entity.IsEntityReceived = true
+			if entity:IsValid() then
+				valid = true
 				
-				--move the values from the proxy to the entity
-				for key, value in pairs(safe_table) do
+				--setup the removal callback
+				entity:CallOnRemove("EntityProxy" .. namespace, on_entity_remove)
+				
+				for key, value in pairs(null_safety) do
 					entity[key] = value
-					safe_table[key] = value
+					null_safety[key] = true --smol - not an address (needs validation)
 				end
-				
-				--stop the expiration time
-				timer.Remove("EntityProxy" .. entity_index)
-				
-				if auto_remove and entity:IsValid() then entity:CallOnRemove("EntityProxy", auto_remove_function, entity_index) end
-				if entity.OnEntityProxyReceived then entity:OnEntityProxyReceived(entity) end
-				
-				return proxy
 			end
-		}, {
-			__index = function(self, key, ...)
-				local proxy_value = rawget(self, key)
+		end
+	}, {
+		__index = function(self, key)
+			local proxy_value = rawget(self, key)
+			
+			--information the proxy holds always has priority so we can access essential methods
+			if proxy_value ~= nil then return proxy_value end
+			
+			local entity_value = entity[key]
+			
+			--make sure entity methods use detours instead
+			if isfunction(entity_value) then
+				local detoured_function = proxy_detours[key]
 				
-				if proxy_value ~= nil then return proxy_value end
+				if detoured_function then return detoured_function end
 				
-				local entity_value = entity[key]
-				
-				if isfunction(entity_value) then
-					local detoured_function = proxy_detours[key]
+				detoured_function = function(first, ...)
+					--if the function was a method and we tried to call it on the proxy, call it on the entity instead
+					if first == self then return entity_value(entity, ...) end
 					
-					if detoured_function then return detoured_function end
-					
-					detoured_function = function(_self, ...) return entity_value(entity, ...) end
-					proxy_detours[key] = detoured_function
-					
-					return detoured_function
+					return entity_value(first, ...)
 				end
 				
-				if entity_value == nil then return safe_table[key] end
+				proxy_detours[key] = detoured_function
 				
-				return entity_value
+				return detoured_function
+			end
+			
+			if entity_value == nil then return null_safety[key] end
+			
+			return entity_value
+		end,
+		
+		__name = "EntityProxy",
+		__newindex = new_index,
+		__tostring = ToString
+	})
+	
+	proxies[entity_index] = proxy
+	
+	--don't wait for the reception if the entity is already valid or was sent invalid
+	if valid or entity_index == invalid_entity_index then return proxy end
+	
+	waiting_proxies[entity_index] = proxy
+	
+	--create the hook if not already done
+	if waiting_proxies_empty then
+		hook.Add(entity_hook, hook_name, function(created_entity)
+			local created_entity_index = created_entity:EntIndex()
+			local waiting_proxy = waiting_proxies[created_entity_index]
+			
+			if waiting_proxy then
+				waiting_proxies[created_entity_index] = nil
 				
-				--[[local value = entity[key]
+				rawset(waiting_proxy, "ProxyReceivedEntity", true)
+				timer.Remove(timer_name)
+				waiting_proxy:SetProxiedEntity(created_entity)
 				
-				if isfunction(value) then
-					local detoured_function = proxy_detours[key]
-					
-					if detoured_function then return detoured_function end
-					
-					local original_function = entity[key]
-					detoured_function = function(_self, ...) return original_function(entity, ...) end
-					proxy_detours[key] = detoured_function
-					
-					return detoured_function
-				end
+				if waiting_proxy.OnEntityProxyReceived then waiting_proxy:OnEntityProxyReceived(created_entity) end
+				if next(waiting_proxies) then return end --dont remove the hook until the queue is empty
 				
-				if value == nil then return rawget(self, key) end
-				
-				return value]]
-			end,
-			
-			__name = "EntityProxy",
-			
-			__newindex = function(self, key, value)
-				if entity:IsValid() then entity[key] = value
-				else safe_table[key] = value end
-			end,
-			
-			__tostring = ToString,
-		})
-		
-		if entity_index ~= 8191 then
-			Proxies[entity_index] = proxy --to prevent duplicates
-			rawset(proxy, "InvalidEntityProxy", true)
-			rawset(proxy, "IsEntityReceived", true)
-		else
-			rawset(proxy, "InvalidEntityProxy", true)
-			rawset(proxy, "IsEntityReceived", entity:IsValid())
-		end
-		
-		rawset(proxy, "IsEntityProxy", true)
-		
-		--if the entity is valid, we don't need to create the hook which waits for its creation
-		if entity:IsValid() then return avoid_proxy and entity or proxy:SetProxiedEntity(entity) end
-		if first then hook.Add("NetworkEntityCreated", "EntityProxy", Hook) end --start the watch
-		if entity_index ~= 8191 then WaitingProxies[entity_index] = proxy end --add it to the waiting list
-		
-		return proxy
+				hook.Remove(entity_hook, hook_name)
+			end
+		end)
 	end
 	
-	function Destroy(entity_index) 
-		Proxies[entity_index] = nil
-		WaitingProxies[entity_index] = nil
-		
-		timer.Remove("EntityProxy" .. entity_index)
-		Unhook()
-	end
+	return proxy
+end
+
+function Destroy(namespace, entity_index) DestroyInternal(namespace, get_entity_index(entity_index)) end
+
+function DestroyInternal(namespace, entity_index)
+	local proxies = Proxies[namespace]
+	local proxy = proxies[entity_index]
 	
-	function Hook(entity)
-		--no need for validity check, no one should be networking until after the map has loaded
-		local entity_index = entity:EntIndex()
-		local proxy = WaitingProxies[entity_index]
+	if proxy then
+		if proxy.OnEntityProxyDestroyed then proxy:OnEntityProxyDestroyed() end
 		
-		if proxy then
-			WaitingProxies[entity_index] = nil
-			
-			--this updates the upvalue and moves the values from the proxy to the entity
-			proxy:SetProxiedEntity(entity)
-			timer.Remove("EntityProxy" .. entity_index)
-			Unhook()
-		end
-	end
-	
-	function IsAlive(proxy) return not proxy.IsEntityReceived or proxy:IsValid() end
-	
-	function Read(avoid_proxy)
-		local entity_index = net.ReadUInt(13)
+		local waiting_proxies = WaitingProxies[namespace]
 		
-		return entity_index and Create(entity_index, avoid_proxy)
-	end
-	
-	function Unhook()
-		if next(WaitingProxies) then return end
-			
-		hook.Remove("NetworkEntityCreated", "EntityProxy")
-	end
-	
-	function ToString(proxy)
-		local text = "[" .. proxy:EntIndex() .. "]"
+		proxies[entity_index] = nil
+		waiting_proxies[entity_index] = nil
 		
-		if proxy:IsValid() then
-			if proxy:IsPlayer() then text = "Player [1][" .. proxy:Nick() .. "]"
-			else text = text .. "[" .. proxy:GetClass() .. "]" end
-		else text = text .. "[NULL Entity]" end
+		--timeout timer
+		timer.Remove("EntityProxy" .. namespace .. entity_index)
 		
-		return text .. (proxy.IsEntityReceived and "[Received]" or "[Not Received]")
-	end
-else --server doesn't need entity proxies
-	function Read()
-		local entity_index = net.ReadUInt(13)
+		--don't remove the hook since we are waiting on more
+		if next(waiting_proxies) then return end
 		
-		return entity_index and Entity(entity_index)
+		hook.Remove(entity_hook, "EntityProxy" .. namespace)
 	end
 end
 
---same in both realms
-function Write(entity_index)
-	--we use 8191 as the invalid entity index because if you reach this index the server is probably going to crash soon anyways
-	--(meaning it will never be reached, and if it is, the issue this would propose is not as big of deal as having an entity with that index)
-	--I'm not using 0 so the world entity can be networked since I use it to represent the server in Pyrition and others may do the same
-	if isentity(entity_index) then entity_index = entity_index:IsValid() and entity_index:EntIndex() or 8191 end
+function Get(namespace, entity_index, timeout)
+	entity_index = get_entity_index(entity_index)
+	local proxies = Proxies[namespace]
+	local proxy = proxies[entity_index]
 	
-	net.WriteUInt(entity_index, 13)
+	if proxy then proxy:RefreshEntityProxyTimer()
+	else proxy = CreateInternal(namespace, entity_index, timeout) end
+	
+	return proxy
 end
+
+function GetExisting(namespace, entity_index) return Proxies[namespace][get_entity_index(entity_index)] end
+function Read(namespace, timeout) return Get(namespace, net.ReadUInt(13), timeout) end
+
+function Register(namespace)
+	if Proxies[namespace] then return end
+	
+	Proxies[namespace] = {}
+	WaitingProxies[namespace] = {}
+end
+
+function ToString(proxy)
+	local entity_index = proxy:EntIndex()
+	local text = "[" .. entity_index .. "]"
+	
+	if proxy:IsValid() then
+		if proxy:IsPlayer() then text = "Player [" .. entity_index .. "][" .. proxy:Nick() .. "]"
+		else text = text .. "[" .. proxy:GetClass() .. "]" end
+	else text = text .. "[NULL Entity]" end
+	
+	local status = proxy.ProxyReceivedEntity
+	
+	if proxy.ProxyReceivedEntity then status = Proxies[namespace][entity_id] and "[Received]" or "[Destroyed after reception]"
+	else
+		local namespace = proxy:GetEntityProxyNamespace()
+		local timed_out_at = proxy.EntityProxyTimeout
+		local waiting_proxy = WaitingProxies[namespace][entity_index]
+		
+		if waiting_proxy == proxy then status = "[Waiting]"
+		elseif timed_out_at then status = "[Timed out " .. math.Round(CurTime() .. timed_out_at, 2) .. " seconds ago]"
+		elseif Proxies[namespace][entity_id] then status = "[Unreceived]"
+		else status = "[Destroyed]" end
+	end
+	
+	return text .. status
+end
+
+function Write(entity_index) net.WriteUInt(get_entity_index(entity_index)) end
