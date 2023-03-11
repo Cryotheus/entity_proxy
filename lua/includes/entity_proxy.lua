@@ -41,7 +41,7 @@ function CreateInternal(namespace, entity_index, timeout)
 	local proxies = Proxies[namespace]
 	local proxy
 	local proxy_detours = {}
-	local reference_count = 1
+	local reference_count = 0
 	local timeout = timeout
 	local timer_name = hook_name .. entity_index
 	local valid = entity:IsValid() --reduce function calls (mainly for __newindex metamethod)

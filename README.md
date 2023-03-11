@@ -101,7 +101,7 @@ No need to set these, they are automatically set for you. Reading from them is s
 |              EntIndex              |               | `number`            | Sames as `Entity:EntIndex` but also works invalid entities                                                 |
 |       GetEntityProxyDetours        |               | `table`             | Returns the `proxy_detours` local table used by the proxy                                                  |
 |      GetEntityProxyNamespace       |               | `string`            | Returns the namespace the entity proxy belongs to (the one it was created with)                            |
-|    GetEntityProxyReferenceCount    |               | `number`            | Gets the `reference_count` local                                                                           |
+|    GetEntityProxyReferenceCount    |               | `number`            | Gets the `reference_count` local (0 on creation)                                                           |
 |          GetProxiedEntity          |               | `Entity`            | Self explanatory                                                                                           |
 | IncrementEntityProxyReferenceCount | `number`      |                     | Add the `reference_count` local by `number` (defaults to 1)                                                |
 |         IsEntityProxyAlive         |               | `boolean`           | Returns `true` if the proxy is still registered under the namespace (`false` otherwise)                    |
