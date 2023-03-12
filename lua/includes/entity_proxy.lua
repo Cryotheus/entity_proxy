@@ -266,6 +266,7 @@ function CreateInternal(namespace, entity_index, timeout)
 			if waiting_proxy then
 				waiting_proxies[created_entity_index] = nil
 				
+				rawset(waiting_proxy, "EntityProxyTimeout", nil)
 				rawset(waiting_proxy, "ProxyReceivedEntity", true)
 				timer.Remove(timer_name)
 				waiting_proxy:SetProxiedEntity(created_entity)
@@ -335,21 +336,21 @@ function ToString(proxy)
 		else text = text .. "[" .. proxy:GetClass() .. "]" end
 	else text = text .. "[NULL Entity]" end
 	
+	local namespace = proxy:GetEntityProxyNamespace()
 	local reference_count = proxy:GetEntityProxyReferenceCount()
 	local status = proxy.ProxyReceivedEntity
 	
 	if reference_count == 0 then reference_count = ""
 	else reference_count = "[" .. reference_count .. " references]" end
 	
-	if proxy.ProxyReceivedEntity then status = Proxies[namespace][entity_id] and "[Received]" .. reference_count or "[Destroyed after reception]"
+	if proxy.ProxyReceivedEntity then status = Proxies[namespace][entity_index] and "[Received]" .. reference_count or "[Destroyed after reception]"
 	else
-		local namespace = proxy:GetEntityProxyNamespace()
 		local timed_out_at = proxy.EntityProxyTimeout
 		local waiting_proxy = WaitingProxies[namespace][entity_index]
 		
 		if waiting_proxy == proxy then status = "[Waiting]"
 		elseif timed_out_at then status = "[Timed out " .. math.Round(CurTime() .. timed_out_at, 2) .. " seconds ago]"
-		elseif Proxies[namespace][entity_id] then status = "[Unreceived]"
+		elseif Proxies[namespace][entity_index] then status = "[Unreceived]"
 		else status = "[Destroyed]" end
 	end
 	
