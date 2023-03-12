@@ -266,6 +266,8 @@ function CreateInternal(namespace, entity_index, timeout)
 			if waiting_proxy then
 				waiting_proxies[created_entity_index] = nil
 				
+				if not created_entity:IsValid() then ErrorNoHalt("invalid entity proxy received!", created_entity, created_entity_index) end
+				
 				rawset(waiting_proxy, "EntityProxyTimeout", nil)
 				rawset(waiting_proxy, "ProxyReceivedEntity", true)
 				timer.Remove(timer_name)
@@ -341,9 +343,9 @@ function ToString(proxy)
 	local status = proxy.ProxyReceivedEntity
 	
 	if reference_count == 0 then reference_count = ""
-	else reference_count = "[" .. reference_count .. " references]" end
+	else reference_count = "[" .. reference_count .. "x]" end
 	
-	if proxy.ProxyReceivedEntity then status = Proxies[namespace][entity_index] and "[Received]" .. reference_count or "[Destroyed after reception]"
+	if proxy.ProxyReceivedEntity then status = Proxies[namespace][entity_index] and "[Received]" or "[Destroyed after reception]"
 	else
 		local timed_out_at = proxy.EntityProxyTimeout
 		local waiting_proxy = WaitingProxies[namespace][entity_index]
@@ -354,7 +356,7 @@ function ToString(proxy)
 		else status = "[Destroyed]" end
 	end
 	
-	return text .. status
+	return text .. status .. reference_count
 end
 
 function Write(entity_index) net.WriteUInt(get_entity_index(entity_index), 13) end
