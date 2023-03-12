@@ -177,7 +177,12 @@ function CreateInternal(namespace, entity_index, timeout)
 		GetProxiedEntity = function() return entity end,
 		IncrementEntityProxyReferenceCount = function(_self, increment) reference_count = reference_count + (increment or 1) end,
 		IsEntityProxyAlive = function() return proxies[entity_index] == proxy end,
-		RefreshEntityProxyTimer = function() timer.Create(timer_name, timeout or default_timeout, 1, timeout_callback) end,
+		
+		RefreshEntityProxyTimer = function()
+			local timeout = timeout or default_timeout
+			
+			if timeout and timer.Exists(timer_name) then timer.Create(timer_name, timeout, 1, timeout_callback) end
+		end,
 		
 		SaveEntityProxyField = function(_self, key)
 			if valid then
