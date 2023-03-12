@@ -347,4 +347,4 @@ function ToString(proxy)
 	return text .. status
 end
 
-function Write(entity_index) net.WriteUInt(get_entity_index(entity_index)) end
+function Write(entity_index) net.WriteUInt(get_entity_index(entity_index), 13) end
