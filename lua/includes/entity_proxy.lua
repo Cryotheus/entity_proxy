@@ -335,9 +335,13 @@ function ToString(proxy)
 		else text = text .. "[" .. proxy:GetClass() .. "]" end
 	else text = text .. "[NULL Entity]" end
 	
+	local reference_count = proxy:GetEntityProxyReferenceCount()
 	local status = proxy.ProxyReceivedEntity
 	
-	if proxy.ProxyReceivedEntity then status = Proxies[namespace][entity_id] and "[Received]" or "[Destroyed after reception]"
+	if reference_count == 0 then reference_count = ""
+	else reference_count = "[" .. reference_count .. " references]" end
+	
+	if proxy.ProxyReceivedEntity then status = Proxies[namespace][entity_id] and "[Received]" .. reference_count or "[Destroyed after reception]"
 	else
 		local namespace = proxy:GetEntityProxyNamespace()
 		local timed_out_at = proxy.EntityProxyTimeout
